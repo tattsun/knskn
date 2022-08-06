@@ -16,7 +16,7 @@ func main() {
 		log.Fatalf("failed to get environments: %+v", err)
 	}
 
-	fmt.Printf("Temp: %.5f\n", temp)
-	fmt.Printf("Pressure: %.5f\n", press)
-	fmt.Printf("Humidity: %.5f\n", hum)
+	fmt.Printf("Temp: %f\n", temp)
+	fmt.Printf("Pressure: %f\n", press)
+	fmt.Printf("Humidity: %f\n", hum)
 }

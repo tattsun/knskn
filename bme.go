@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/pkg/errors"
 	"github.com/quhar/bme280"
+
+	"github.com/pkg/errors"
 	"golang.org/x/exp/io/i2c"
 )
 
@@ -16,7 +17,18 @@ func NewBME() (*BME, error) {
 		return nil, errors.Wrap(err, "failed to initialize i2c")
 	}
 
-	bme := bme280.New(dev)
+	bme := bme280.New(dev,
+		bme280.Standby(bme280.Stbdby1000),
+		bme280.Mode(bme280.NormalMode),
+		bme280.TempOverSmpl(bme280.OverSmpl1<<5),
+		bme280.PressOverSmpl(bme280.OverSmpl1<<3),
+		bme280.HumOverSmpl(bme280.OverSmpl1),
+	)
+
+	err = bme.Init()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to initialize bme")
+	}
 
 	return &BME{bme}, nil
 }
