@@ -44,15 +44,15 @@
             }
         );
 
-        const humChart = new Chart(
-            document.getElementById("humChart"),
+        const pressChart = new Chart(
+            document.getElementById("pressChart"),
             {
                 type: 'line',
                 data: {
                     labels: data.map(x => new Date(x.Timestamp)),
                     datasets: [{
-                        label: '湿度',
-                        data: data.map(x => x.Hum),
+                        label: '気圧',
+                        data: data.map(x => x.Press),
                         borderColor: 'rgb(153, 102, 255)',
                         tension: 0.4,
                     }],
