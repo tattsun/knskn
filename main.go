@@ -1,8 +1,10 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +15,9 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
+
+//go:embed static/*
+var staticRoot embed.FS
 
 type Data struct {
 	Timestamp int64
@@ -45,7 +50,7 @@ func main() {
 				log.Printf("failed to get environments: %+v", err)
 			}
 
-			key := []byte(strconv.Itoa(int(time.Now().UnixMilli())))
+			key := []byte(strconv.FormatInt(time.Now().UnixMilli(), 10))
 			value := []byte(fmt.Sprintf("%.2f,%.2f,%.2f", temp, press, hum))
 			if err := db.Put(key, value, nil); err != nil {
 				log.Printf("failed to put data to DB: %+v", err)
@@ -57,12 +62,12 @@ func main() {
 	http.HandleFunc("/data", func(w http.ResponseWriter, r *http.Request) {
 		from := r.URL.Query().Get("from")
 		if from == "" {
-			from = strconv.Itoa(int(time.Now().Add(-24 * time.Hour).UnixMilli()))
+			from = strconv.FormatInt(time.Now().Add(-24*time.Hour).UnixMilli(), 10)
 		}
 
 		to := r.URL.Query().Get("to")
 		if to == "" {
-			to = strconv.Itoa(int(time.Now().UnixMilli()))
+			to = strconv.FormatInt(time.Now().UnixMilli(), 10)
 		}
 
 		datum := []Data{}
@@ -70,14 +75,12 @@ func main() {
 		iter := db.NewIterator(&util.Range{Start: []byte(from), Limit: []byte(to)}, nil)
 		defer iter.Release()
 		for iter.Next() {
-			timestampInt, err := strconv.Atoi(string(iter.Key()))
+			timestamp, err := strconv.ParseInt(string(iter.Key()), 10, 64)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				fmt.Fprint(w, "unexpected error")
 				return
 			}
-
-			timestamp := int64(timestampInt)
 
 			parts := strings.Split(string(iter.Value()), ",")
 			temp, err := strconv.ParseFloat(parts[0], 64)
@@ -118,6 +121,12 @@ func main() {
 		enc := json.NewEncoder(w)
 		enc.Encode(datum)
 	})
+
+	static, err := fs.Sub(staticRoot, "static")
+	if err != nil {
+		log.Fatal(err)
+	}
+	http.Handle("/", http.FileServer(http.FS(static)))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
