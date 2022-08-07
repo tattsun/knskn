@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -32,10 +33,8 @@ func main() {
 		dbFilePath = "./knskn.db"
 	}
 
-	bme, err := NewBME()
-	if err != nil {
-		log.Fatalf("failed to initialize BME: %+v", err)
-	}
+	testingEnv := os.Getenv("KNSKN_TESTING")
+	testing := len(testingEnv) > 0
 
 	db, err := leveldb.OpenFile(dbFilePath, nil)
 	if err != nil {
@@ -44,6 +43,15 @@ func main() {
 	defer db.Close()
 
 	go func() {
+		if testing {
+			return
+		}
+
+		bme, err := NewBME()
+		if err != nil {
+			log.Fatalf("failed to initialize BME: %+v", err)
+		}
+
 		for {
 			temp, press, hum, err := bme.GetEnv()
 			if err != nil {
@@ -60,6 +68,29 @@ func main() {
 	}()
 
 	http.HandleFunc("/data", func(w http.ResponseWriter, r *http.Request) {
+		if testing {
+			start := time.Now().UnixMilli() - (86400 * 1000)
+			datum := []Data{}
+			deltaTemp := float64(0.001)
+			deltaHum := float64(0.001)
+			deltaPress := float64(0.001)
+			for i := int64(0); i < 86400; i++ {
+				deltaTemp += (0.5 - rand.Float64()) / 10
+				deltaHum += (0.5 - rand.Float64()) / 10
+				deltaPress += (0.5 - rand.Float64()) / 10
+				datum = append(datum, Data{
+					Timestamp: start + (1000 * i),
+					Temp:      float64(20 + deltaTemp),
+					Hum:       float64(50 + deltaHum),
+					Press:     float64(950 + deltaPress),
+				})
+			}
+			w.WriteHeader(http.StatusOK)
+			enc := json.NewEncoder(w)
+			enc.Encode(datum)
+			return
+		}
+
 		from := r.URL.Query().Get("from")
 		if from == "" {
 			from = strconv.FormatInt(time.Now().Add(-24*time.Hour).UnixMilli(), 10)
